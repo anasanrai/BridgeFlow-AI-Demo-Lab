@@ -34,7 +34,7 @@ export async function POST(req: Request) {
 
     // Search for relevant chunks
     const { data: docs, error } = await supabaseAdmin.rpc("match_rag_documents", {
-      query_embedding: queryEmbedding,
+      query_embedding: `[${queryEmbedding.join(",")}]`,
       match_session_id: sessionId,
       match_count: chunkCount,
       match_threshold: 0.3,

@@ -48,13 +48,12 @@ export function useElevenLabs() {
   }, []);
 
   const startSession = async (agentId: string) => {
+    if (!agentId || agentId === "REPLACE_WITH_ELEVENLABS_AGENT_ID") {
+      throw new Error("ElevenLabs agent not configured yet. Coming soon.");
+    }
     setTranscript([]);
     setCallDuration(0);
-    await navigator.mediaDevices.getUserMedia({ audio: true });
-    
-    await conversation.startSession({
-      agentId,
-    });
+    await conversation.startSession({ agentId });
   };
 
   const stopSession = async () => {

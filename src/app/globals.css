@@ -1,37 +1,55 @@
 @import url('https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
 
-/* SF Pro fallback stack */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-:root {
-  --bg-base: #000000;
-  --bg-surface: #0A0A0A;
-  --bg-card: #111111;
-  --bg-elevated: #1C1C1E;
-  --bg-hover: #222222;
+@theme {
+  --color-base: #000000;
+  --color-surface: #0A0A0A;
+  --color-card: #111111;
+  --color-elevated: #1C1C1E;
+  --color-bg-primary: #000000;
+  --color-bg-secondary: #0A0A0A;
+  --color-bg-card: #111111;
+  --color-bg-hover: #222222;
   
-  --accent: #6366F1;
-  --accent-dim: rgba(99, 102, 241, 0.12);
-  --accent-border: rgba(99, 102, 241, 0.3);
+  --color-accent: #6366F1;
+  --color-accent-dim: rgba(99, 102, 241, 0.12);
+  --color-accent-border: rgba(99, 102, 241, 0.3);
   
-  --text-primary: #FFFFFF;
-  --text-secondary: #EBEBF5;
-  --text-tertiary: #8E8EA0;
-  --text-quaternary: #48484A;
+  --color-t1: #FFFFFF;
+  --color-t2: #EBEBF5;
+  --color-t3: #8E8EA0;
+  --color-t4: #48484A;
   
-  --border-subtle: rgba(255, 255, 255, 0.06);
-  --border-default: rgba(255, 255, 255, 0.10);
-  --border-strong: rgba(255, 255, 255, 0.18);
+  --color-border-s: rgba(255, 255, 255, 0.06);
+  --color-border-d: rgba(255, 255, 255, 0.10);
+  --color-border-st: rgba(255, 255, 255, 0.18);
+  
+  --color-live: #30D158;
+  --color-warn: #FF9F0A;
+  --color-error: #FF453A;
   
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 20px;
   --radius-pill: 980px;
-  
-  color-scheme: dark;
+
+  --animate-fade-up: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-pulse-dot: pulseDot 2s ease-in-out infinite;
+  --animate-wave: wave 1.2s ease-in-out infinite;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+@keyframes wave {
+  0%, 100% { transform: scaleY(0.3); opacity: 0.4; }
+  50% { transform: scaleY(1.8); opacity: 1; }
 }
 
 * {
@@ -41,13 +59,13 @@
 }
 
 html {
-  background: var(--bg-base);
+  background: #000000;
 }
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif;
-  background: var(--bg-base);
-  color: var(--text-primary);
+  background: #000000;
+  color: #FFFFFF;
   line-height: 1.5;
   letter-spacing: -0.01em;
 }
@@ -82,12 +100,12 @@ body {
   font-weight: 500;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--text-tertiary);
+  color: #8E8EA0;
 }
 
 /* Accent glow — used only on active/live states */
 .accent-glow {
-  box-shadow: 0 0 0 1px var(--accent-border), 0 0 20px rgba(99,102,241,0.15);
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.3), 0 0 20px rgba(99,102,241,0.15);
 }
 
 /* Wave visualizer */
@@ -95,7 +113,7 @@ body {
   display: inline-block;
   width: 2px;
   border-radius: 1px;
-  background: var(--accent);
+  background: #6366F1;
   transform-origin: bottom;
   animation: wave 1.2s ease-in-out infinite;
 }
@@ -105,16 +123,6 @@ body {
 .wave-bar:nth-child(4) { animation-delay: 0.3s; }
 .wave-bar:nth-child(5) { animation-delay: 0.4s; }
 
-@keyframes wave {
-  0%, 100% { transform: scaleY(0.3); opacity: 0.4; }
-  50% { transform: scaleY(1.8); opacity: 1; }
-}
-
-/* Page load fade */
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(16px); }
-  to { opacity: 1; transform: translateY(0); }
-}
 .fade-up {
   animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
@@ -124,9 +132,4 @@ body {
 .fade-up-4 { animation-delay: 0.20s; }
 .fade-up-5 { animation-delay: 0.25s; }
 
-/* Pulse dot */
-@keyframes pulseDot {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(0.85); }
-}
 .pulse-dot { animation: pulseDot 2s ease-in-out infinite; }

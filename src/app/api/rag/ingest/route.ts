@@ -37,8 +37,9 @@ export async function POST(req: Request) {
     const buffer = Buffer.from(bytes);
 
     if (file.name.endsWith(".pdf")) {
-      const pdfModule = (await import("pdf-parse")) as any;
-      const pdfParse = pdfModule.default || pdfModule;
+      // Dynamic import keeps pdf-parse out of the client bundle (see serverExternalPackages in next.config.ts)
+      const pdfModule = await import("pdf-parse");
+      const pdfParse = (pdfModule as any).default ?? pdfModule;
       const parsed = await pdfParse(buffer);
       text = parsed.text;
     } else {
@@ -74,7 +75,7 @@ export async function POST(req: Request) {
           chunk_index: i + j,
           total_chunks: chunks.length,
         },
-        embedding: embeddings[j], // pgvector takes direct float array or string representation
+        embedding: `[${embeddings[j].join(",")}]`,
       }));
 
       const { error } = await supabaseAdmin.from("rag_documents").insert(rows);

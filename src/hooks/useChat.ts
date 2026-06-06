@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { v4 as uuidv4 } from "uuid";
 
 export interface Message {
   role: string; // 'user' | 'assistant'
@@ -12,7 +11,9 @@ export interface Message {
 export function useChat(agentKey: string) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [sessionId] = useState(() => uuidv4());
+  const [sessionId] = useState(() =>
+    typeof crypto !== "undefined" ? crypto.randomUUID() : Math.random().toString(36).slice(2)
+  );
   const [systemContext, setSystemContext] = useState("");
 
   const sendMessage = async (content: string, onError?: (err: string) => void) => {

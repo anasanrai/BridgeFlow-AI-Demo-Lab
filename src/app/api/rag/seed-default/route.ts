@@ -135,7 +135,7 @@ export async function POST(req: Request) {
         session_id: sessionId,
         content,
         metadata: { source: "BridgeFlow Services Default", chunk_index: i + j },
-        embedding: embeddings[j],
+        embedding: `[${embeddings[j].join(",")}]`,
       }));
 
       const { error } = await supabaseAdmin.from("rag_documents").insert(rows);

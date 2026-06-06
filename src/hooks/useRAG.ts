@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { v4 as uuidv4 } from "uuid";
 
 export interface RAGMessage {
   role: "user" | "assistant";
@@ -11,7 +10,9 @@ export interface RAGMessage {
 }
 
 export function useRAG() {
-  const [sessionId] = useState(() => uuidv4());
+  const [sessionId] = useState(() =>
+    typeof crypto !== "undefined" ? crypto.randomUUID() : Math.random().toString(36).slice(2)
+  );
   const [messages, setMessages] = useState<RAGMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<"idle" | "uploading" | "processing" | "ready" | "error">("idle");

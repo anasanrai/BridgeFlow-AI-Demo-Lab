@@ -6,6 +6,28 @@ const WEBHOOK_MAP: Record<string, string> = {
   "axis-agent": process.env.N8N_WEBHOOK_AXIS_AGENT!,
 };
 
+function extractReply(data: unknown): string {
+  if (typeof data === "string") return data;
+  if (Array.isArray(data)) {
+    const first = data[0];
+    if (typeof first === "string") return first;
+    if (first && typeof first === "object") {
+      const f = first as Record<string, unknown>;
+      const val = f.output ?? f.message ?? f.text ?? f.response ?? f.reply ?? f.answer;
+      if (typeof val === "string") return val;
+    }
+    return JSON.stringify(data[0] ?? data);
+  }
+  if (data && typeof data === "object") {
+    const d = data as Record<string, unknown>;
+    const val =
+      d.output ?? d.message ?? d.text ?? d.response ?? d.reply ?? d.answer ??
+      (typeof d.data === "string" ? d.data : undefined);
+    if (typeof val === "string") return val;
+  }
+  return JSON.stringify(data);
+}
+
 export async function POST(req: Request) {
   try {
     const { agentKey, message, sessionId, systemContext } = await req.json();
@@ -32,22 +54,15 @@ export async function POST(req: Request) {
     });
 
     if (!response.ok) {
-      console.error(`n8n webhook returned status: ${response.status}`);
-      return NextResponse.json({ error: `n8n webhook error: ${response.statusText}` }, { status: 500 });
+      return NextResponse.json(
+        { error: `Webhook returned ${response.status}. Make sure the n8n workflow is active.` },
+        { status: 500 }
+      );
     }
 
     const data = await response.json();
-    
-    // n8n outputs vary: check output, message, text, or fallback
-    const replyText =
-      data?.output ||
-      data?.message ||
-      data?.text ||
-      (typeof data === "string" ? data : JSON.stringify(data));
-
-    return NextResponse.json({ reply: replyText });
+    return NextResponse.json({ reply: extractReply(data) });
   } catch (err: any) {
-    console.error("n8n Chat Proxy Error:", err);
     return NextResponse.json(
       { error: "Request timeout or connection error. Make sure the n8n webhook is active." },
       { status: 500 }

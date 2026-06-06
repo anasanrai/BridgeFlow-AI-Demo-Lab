@@ -33,9 +33,9 @@ export function NavBar({ activeTab, onTabChange }: NavBarProps) {
           </div>
         </div>
 
-        {/* Tab switcher — pill group */}
+        {/* Tab switcher — pill group — hidden on mobile, shown md+ */}
         <div
-          className="flex items-center p-[3px] gap-[2px]"
+          className="hidden md:flex items-center p-[3px] gap-[2px]"
           style={{
             background: "rgba(255,255,255,0.05)",
             border: "1px solid rgba(255,255,255,0.07)",
