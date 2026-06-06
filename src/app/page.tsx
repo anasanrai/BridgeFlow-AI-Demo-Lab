@@ -7,7 +7,6 @@ import { ChatTab } from "@/components/tabs/ChatTab";
 import { RAGTab } from "@/components/tabs/RAGTab";
 import { ParameterDrawer } from "@/components/ParameterDrawer";
 
-import { ConversationProvider } from "@elevenlabs/react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 export default function Home() {
@@ -52,8 +51,7 @@ export default function Home() {
   };
 
   return (
-    <ConversationProvider>
-      <div className="relative min-h-screen flex flex-col bg-base select-none">
+    <div className="relative min-h-screen flex flex-col bg-base select-none">
         {/* Top Navbar */}
         <NavBar activeTab={activeTab} onTabChange={setActiveTab} />
 
@@ -192,7 +190,6 @@ export default function Home() {
           onSave={drawerState.onSave}
           onReset={drawerState.onReset}
         />
-      </div>
-    </ConversationProvider>
+    </div>
   );
 }

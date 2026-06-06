@@ -1,10 +1,10 @@
 "use client";
 
-import { useConversation } from "@elevenlabs/react";
 import { useState, useCallback, useRef, useEffect } from "react";
 import type { CallState, TranscriptMessage } from "./useVapi";
 
 export function useElevenLabs() {
+  const conversationRef = useRef<any>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const [callState, setCallState] = useState<CallState>("idle");
   const [transcript, setTranscript] = useState<TranscriptMessage[]>([]);
@@ -12,79 +12,94 @@ export function useElevenLabs() {
   const [errorMsg, setErrorMsg] = useState("");
   const [isSpeaking, setIsSpeaking] = useState(false);
 
-  const conversation = useConversation({
-    onConnect: () => {
-      setCallState("active");
-      if (timerRef.current) clearInterval(timerRef.current);
-      timerRef.current = setInterval(() => setCallDuration((d) => d + 1), 1000);
-    },
-    onDisconnect: () => {
-      setCallState((prev) => (prev === "error" ? "error" : "ended"));
-      if (timerRef.current) clearInterval(timerRef.current);
-    },
-    onMessage: ({ message, source }: { message: string; source: string }) => {
-      setTranscript((prev) => [
-        ...prev,
-        {
-          role: source === "user" ? "user" : "assistant",
-          content: message,
-          timestamp: new Date(),
-        },
-      ]);
-    },
-    onError: (message: string) => {
-      const msg = typeof message === "string" ? message : "ElevenLabs connection failed";
-      setErrorMsg(msg);
-      setCallState("error");
-      if (timerRef.current) clearInterval(timerRef.current);
-    },
-  });
-
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      if (conversationRef.current) {
+        try {
+          conversationRef.current.endSession();
+        } catch {}
+      }
     };
   }, []);
 
-  const startSession = useCallback(
-    async (agentId: string) => {
-      try {
-        setErrorMsg("");
-        setTranscript([]);
-        setCallDuration(0);
+  const startSession = useCallback(async (agentId: string) => {
+    try {
+      setErrorMsg("");
+      setTranscript([]);
+      setCallDuration(0);
 
-        if (!agentId || agentId === "REPLACE_WITH_ELEVENLABS_AGENT_ID" || agentId === "placeholder") {
-          throw new Error("ElevenLabs agent not configured yet.");
-        }
-
-        setCallState("requesting");
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        stream.getTracks().forEach((t) => t.stop());
-
-        setCallState("connecting");
-        await conversation.startSession({ agentId });
-      } catch (err: any) {
-        const msg = err?.message || "ElevenLabs connection failed";
-        setErrorMsg(msg);
-        setCallState("error");
+      if (!agentId || agentId === "REPLACE_WITH_ELEVENLABS_AGENT_ID" || agentId === "placeholder") {
+        throw new Error("ElevenLabs agent not configured yet.");
       }
-    },
-    [conversation]
-  );
+
+      setCallState("requesting");
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((t) => t.stop());
+
+      setCallState("connecting");
+
+      // Use @elevenlabs/client imperatively — avoids useConversation hook SSR issues
+      const { Conversation } = await import("@elevenlabs/client");
+
+      const conv = await Conversation.startSession({
+        agentId,
+        onConnect: () => {
+          setCallState("active");
+          if (timerRef.current) clearInterval(timerRef.current);
+          timerRef.current = setInterval(() => setCallDuration((d) => d + 1), 1000);
+        },
+        onDisconnect: () => {
+          setCallState((prev) => (prev === "error" ? "error" : "ended"));
+          if (timerRef.current) clearInterval(timerRef.current);
+        },
+        onMessage: ({ message, source }: { message: string; source: "user" | "ai" }) => {
+          setTranscript((prev) => [
+            ...prev,
+            {
+              role: source === "user" ? "user" : "assistant",
+              content: message,
+              timestamp: new Date(),
+            },
+          ]);
+        },
+        onModeChange: ({ mode }: { mode: string }) => {
+          setIsSpeaking(mode === "speaking");
+        },
+        onError: (msg: string) => {
+          const errMsg = typeof msg === "string" ? msg : "ElevenLabs connection failed";
+          setErrorMsg(errMsg);
+          setCallState("error");
+          if (timerRef.current) clearInterval(timerRef.current);
+        },
+      });
+
+      conversationRef.current = conv;
+    } catch (err: any) {
+      const msg = err?.message || "ElevenLabs connection failed";
+      setErrorMsg(msg);
+      setCallState("error");
+    }
+  }, []);
 
   const stopSession = useCallback(async () => {
     try {
-      await conversation.endSession();
+      if (conversationRef.current) {
+        await conversationRef.current.endSession();
+        conversationRef.current = null;
+      }
     } catch {}
     setCallState("ended");
+    setIsSpeaking(false);
     if (timerRef.current) clearInterval(timerRef.current);
-  }, [conversation]);
+  }, []);
 
   const resetCall = useCallback(() => {
     setCallState("idle");
     setTranscript([]);
     setCallDuration(0);
     setErrorMsg("");
+    setIsSpeaking(false);
   }, []);
 
   return {
@@ -92,7 +107,7 @@ export function useElevenLabs() {
     transcript,
     callDuration,
     errorMsg,
-    isSpeaking: conversation.isSpeaking,
+    isSpeaking,
     startSession,
     stopSession,
     resetCall,

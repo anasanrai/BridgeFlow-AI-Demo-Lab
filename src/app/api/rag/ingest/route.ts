@@ -16,9 +16,17 @@ function chunkText(text: string, chunkSize = 800, overlap = 100): string[] {
 }
 
 async function embedText(text: string): Promise<number[]> {
-  const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
-  const result = await model.embedContent(text);
-  return result.embedding.values;
+  // text-embedding-004 requires v1 API; embedding-001 is stable on v1beta
+  for (const modelName of ["text-embedding-004", "embedding-001"]) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.embedContent(text);
+      return result.embedding.values;
+    } catch {
+      continue;
+    }
+  }
+  throw new Error("No Gemini embedding model available. Check GEMINI_API_KEY.");
 }
 
 export async function POST(req: Request) {

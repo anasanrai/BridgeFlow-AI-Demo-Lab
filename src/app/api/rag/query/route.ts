@@ -5,9 +5,16 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 async function embedText(text: string): Promise<number[]> {
-  const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
-  const result = await model.embedContent(text);
-  return result.embedding.values;
+  for (const modelName of ["text-embedding-004", "embedding-001"]) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.embedContent(text);
+      return result.embedding.values;
+    } catch {
+      continue;
+    }
+  }
+  throw new Error("No Gemini embedding model available. Check GEMINI_API_KEY.");
 }
 
 // Default BridgeFlow context fallback
@@ -72,10 +79,21 @@ QUESTION: ${question}
 
 Answer based on the context above. Be helpful, professional, and concise.`;
 
-    // Generate answer with Gemini
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
-    const result = await model.generateContent(fullPrompt);
-    const answer = result.response.text();
+    // Generate answer with Gemini — try flash models in order of availability
+    let answer = "";
+    for (const modelName of ["gemini-2.0-flash", "gemini-2.0-flash-exp", "gemini-1.5-flash", "gemini-pro"]) {
+      try {
+        const model = genAI.getGenerativeModel({ model: modelName });
+        const result = await model.generateContent(fullPrompt);
+        answer = result.response.text();
+        break;
+      } catch {
+        continue;
+      }
+    }
+    if (!answer) {
+      answer = "I could not generate an answer. Check the GEMINI_API_KEY configuration.";
+    }
 
     return NextResponse.json({
       answer,

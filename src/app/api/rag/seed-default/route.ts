@@ -119,17 +119,25 @@ export async function POST(req: Request) {
     }
 
     const chunks = chunkText(BRIDGEFLOW_CONTENT);
-    const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
+
+    // Try text-embedding-004 first (768-dim), fall back to embedding-001 (also 768-dim)
+    async function embedOne(text: string): Promise<number[]> {
+      for (const modelName of ["text-embedding-004", "embedding-001"]) {
+        try {
+          const m = genAI.getGenerativeModel({ model: modelName });
+          const r = await m.embedContent(text);
+          return r.embedding.values;
+        } catch {
+          continue;
+        }
+      }
+      throw new Error("No Gemini embedding model available.");
+    }
 
     const BATCH = 5;
     for (let i = 0; i < chunks.length; i += BATCH) {
       const batch = chunks.slice(i, i + BATCH);
-      const embeddings = await Promise.all(
-        batch.map(async (c) => {
-          const r = await model.embedContent(c);
-          return r.embedding.values;
-        })
-      );
+      const embeddings = await Promise.all(batch.map((c) => embedOne(c)));
 
       const rows = batch.map((content, j) => ({
         session_id: sessionId,
