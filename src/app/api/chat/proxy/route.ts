@@ -16,12 +16,18 @@ const SYSTEM_CONTEXTS: Record<string, string> = {
     "You are the AXIS AI Command Agent, an advanced business assistant. Help with task planning, automation logic, and custom commands. Be direct, logical, and concise.",
 };
 
+const USELESS_N8N_RESPONSES = new Set([
+  "workflow was started",
+  "ok",
+  "success",
+  "",
+]);
+
 function extractReply(data: unknown): string | null {
   if (!data) return null;
   if (typeof data === "string") {
     const trimmed = data.trim();
-    // n8n returns this when there's no Respond to Webhook node
-    if (trimmed === "Workflow was started" || trimmed === "") return null;
+    if (USELESS_N8N_RESPONSES.has(trimmed.toLowerCase())) return null;
     return trimmed;
   }
   if (Array.isArray(data)) {

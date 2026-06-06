@@ -120,7 +120,6 @@ export async function POST(req: Request) {
 
     const chunks = chunkText(BRIDGEFLOW_CONTENT);
 
-    // Try text-embedding-004 first (768-dim), fall back to embedding-001 (also 768-dim)
     async function embedOne(text: string): Promise<number[]> {
       for (const modelName of ["text-embedding-004", "embedding-001"]) {
         try {
@@ -131,7 +130,14 @@ export async function POST(req: Request) {
           continue;
         }
       }
-      throw new Error("No Gemini embedding model available.");
+      throw new Error("Embedding unavailable");
+    }
+
+    // If embedding is unavailable, return success — queries fall back to DEFAULT_CONTEXT
+    try {
+      await embedOne(chunks[0]); // probe once before processing all
+    } catch {
+      return NextResponse.json({ success: true, chunks: 0, usingDefaultContext: true });
     }
 
     const BATCH = 5;
