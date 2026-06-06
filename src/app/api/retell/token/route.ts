@@ -5,13 +5,18 @@ export async function POST(req: Request) {
     const { agentId } = await req.json();
 
     if (!agentId) {
-      return NextResponse.json({ error: "Missing agentId" }, { status: 400 });
+      return NextResponse.json({ error: "agentId is required" }, { status: 400 });
+    }
+
+    const apiKey = process.env.RETELL_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json({ error: "RETELL_API_KEY not configured on server" }, { status: 500 });
     }
 
     const response = await fetch("https://api.retellai.com/v2/create-web-call", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.RETELL_API_KEY}`,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ agent_id: agentId }),
@@ -19,17 +24,17 @@ export async function POST(req: Request) {
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error("Retell API Error response:", errText);
+      console.error("Retell API error:", response.status, errText);
       return NextResponse.json(
-        { error: `Failed to create Retell web call: ${response.statusText}` },
-        { status: 500 }
+        { error: `Retell API error ${response.status}: ${response.statusText}` },
+        { status: response.status }
       );
     }
 
     const data = await response.json();
     return NextResponse.json({ accessToken: data.access_token });
-  } catch (error: any) {
-    console.error("Retell server error:", error);
-    return NextResponse.json({ error: error.message || "Server error" }, { status: 500 });
+  } catch (err: any) {
+    console.error("Retell server error:", err);
+    return NextResponse.json({ error: err.message || "Internal server error" }, { status: 500 });
   }
 }

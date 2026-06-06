@@ -1,98 +1,141 @@
 "use client";
 
-import Vapi from "@vapi-ai/web";
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
+
+export interface TranscriptMessage {
+  role: "user" | "assistant";
+  content: string;
+  timestamp: Date;
+}
+
+export type CallState = "idle" | "requesting" | "connecting" | "active" | "ended" | "error";
 
 export function useVapi() {
-  const [isCallActive, setIsCallActive] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const [transcript, setTranscript] = useState<Array<{ role: string; content: string; timestamp: Date }>>([]);
-  const [callDuration, setCallDuration] = useState(0);
+  const vapiRef = useRef<any>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const vapiRef = useRef<Vapi | null>(null);
+  const [callState, setCallState] = useState<CallState>("idle");
+  const [isMuted, setIsMuted] = useState(false);
+  const [transcript, setTranscript] = useState<TranscriptMessage[]>([]);
+  const [callDuration, setCallDuration] = useState(0);
+  const [errorMsg, setErrorMsg] = useState("");
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const vapiInstance = new Vapi(process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY!);
-      vapiRef.current = vapiInstance;
+  const getVapi = useCallback(async () => {
+    if (vapiRef.current) return vapiRef.current;
 
-      const handleCallStart = () => {
-        setIsCallActive(true);
-        if (timerRef.current) {
-          clearInterval(timerRef.current);
-        }
-        timerRef.current = setInterval(() => setCallDuration((d) => d + 1), 1000);
-      };
+    const { default: Vapi } = await import("@vapi-ai/web");
+    const publicKey = process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY;
+    if (!publicKey) throw new Error("NEXT_PUBLIC_VAPI_PUBLIC_KEY is not set");
 
-      const handleCallEnd = () => {
-        setIsCallActive(false);
-        setCallDuration(0);
-        if (timerRef.current) {
-          clearInterval(timerRef.current);
-        }
-      };
+    const instance = new Vapi(publicKey);
+    vapiRef.current = instance;
 
-      const handleMessage = (msg: any) => {
-        if (msg.type === "transcript" && msg.transcriptType === "final") {
-          setTranscript((prev) => [
-            ...prev,
-            {
-              role: msg.role === "user" ? "user" : "assistant",
-              content: msg.transcript,
-              timestamp: new Date(),
-            },
-          ]);
-        }
-      };
+    instance.on("call-start", () => {
+      setCallState("active");
+      setCallDuration(0);
+      if (timerRef.current) clearInterval(timerRef.current);
+      timerRef.current = setInterval(() => setCallDuration((d) => d + 1), 1000);
+    });
 
-      vapiInstance.on("call-start", handleCallStart);
-      vapiInstance.on("call-end", handleCallEnd);
-      vapiInstance.on("message", handleMessage);
+    instance.on("call-end", () => {
+      setCallState("ended");
+      if (timerRef.current) clearInterval(timerRef.current);
+    });
 
-      return () => {
-        vapiInstance.stop();
-        vapiInstance.off("call-start", handleCallStart);
-        vapiInstance.off("call-end", handleCallEnd);
-        vapiInstance.off("message", handleMessage);
-        if (timerRef.current) {
-          clearInterval(timerRef.current);
-        }
-      };
-    }
+    instance.on("error", (err: any) => {
+      const msg =
+        err?.message ||
+        err?.error?.message ||
+        (typeof err === "string" ? err : "Connection failed. Check your Vapi assistant ID.");
+      setErrorMsg(msg);
+      setCallState("error");
+      if (timerRef.current) clearInterval(timerRef.current);
+    });
+
+    instance.on("message", (msg: any) => {
+      if (msg.type === "transcript" && msg.transcriptType === "final") {
+        setTranscript((prev) => [
+          ...prev,
+          {
+            role: msg.role === "user" ? "user" : "assistant",
+            content: msg.transcript,
+            timestamp: new Date(),
+          },
+        ]);
+      }
+    });
+
+    return instance;
   }, []);
 
-  const startCall = async (assistantId: string, overrides?: any) => {
-    if (vapiRef.current) {
-      setTranscript([]);
-      // Prepare assistant overrides from parameters if specified
-      let finalOverrides = overrides || {};
-      
-      // Greet first message override if applicable
-      await vapiRef.current.start(assistantId, finalOverrides);
-    }
-  };
+  const startCall = useCallback(
+    async (assistantId: string, overrides?: any) => {
+      try {
+        setErrorMsg("");
+        setTranscript([]);
+        setCallDuration(0);
 
-  const stopCall = () => {
-    if (vapiRef.current) {
-      vapiRef.current.stop();
-    }
-  };
+        if (!assistantId || assistantId === "REPLACE_WITH_VAPI_ASSISTANT_ID") {
+          throw new Error("Vapi assistant ID not configured");
+        }
 
-  const toggleMute = () => {
-    if (vapiRef.current) {
-      const nextMuted = !isMuted;
-      vapiRef.current.setMuted(nextMuted);
-      setIsMuted(nextMuted);
-    }
-  };
+        setCallState("requesting");
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach((t) => t.stop());
+
+        setCallState("connecting");
+        const vapi = await getVapi();
+        await vapi.start(assistantId, overrides || {});
+      } catch (err: any) {
+        setErrorMsg(err?.message || "Failed to start call");
+        setCallState("error");
+      }
+    },
+    [getVapi]
+  );
+
+  const stopCall = useCallback(async () => {
+    try {
+      if (vapiRef.current) await vapiRef.current.stop();
+    } catch {}
+    setCallState("ended");
+    if (timerRef.current) clearInterval(timerRef.current);
+  }, []);
+
+  const toggleMute = useCallback(() => {
+    if (!vapiRef.current) return;
+    const next = !isMuted;
+    vapiRef.current.setMuted(next);
+    setIsMuted(next);
+  }, [isMuted]);
+
+  const resetCall = useCallback(() => {
+    setCallState("idle");
+    setTranscript([]);
+    setCallDuration(0);
+    setErrorMsg("");
+    setIsMuted(false);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (vapiRef.current) {
+        try {
+          vapiRef.current.stop();
+        } catch {}
+      }
+    };
+  }, []);
 
   return {
-    isCallActive,
+    callState,
     isMuted,
     transcript,
     callDuration,
+    errorMsg,
     startCall,
     stopCall,
     toggleMute,
+    resetCall,
   };
 }
